@@ -7,13 +7,13 @@ A browser-based design tool for "wheel legs" (wheels with spiral-arc spokes). It
 
 ## 使い方
 
-[docs/wheel_leg_maker.html](docs/wheel_leg_maker.html) をブラウザで開くだけです。
-
-GitHub Pages を有効にしている場合は、次のURLからも利用できます。
+次のURLをブラウザで開くだけです。
 
 ```
-https://tarosay.github.io/wheel_legs_maker/wheel_leg_maker.html
+https://tarosay.github.io/wheel_legs_maker/
 ```
+
+ローカルで使う場合は [docs/index.html](docs/index.html) を直接開いても動作します。
 
 ### 調整できるパラメータ
 
