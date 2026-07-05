@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ホイールレッグ 渦状弧曲線 DXF出力エディタ 数値入力＋スライダー版</title>
+<style>
+  body { font-family: sans-serif; margin: 20px; background: #f7f7f7; }
+  h1 { font-size: 20px; }
+  .wrap { display: flex; gap: 20px; align-items: flex-start; }
+  canvas { background: white; border: 1px solid #aaa; cursor: crosshair; }
+  .panel { background: white; border: 1px solid #ccc; padding: 12px; width: 390px; }
+  label {
+    display: block;
+    margin-top: 14px;
+    padding: 6px 8px;
+    background: #dfefff;
+    border-left: 6px solid #2f6fb0;
+    font-weight: bold;
+  }
+  input { box-sizing: border-box; }
+  input[type="range"] { width: 100%; }
+  input[type="number"] { width: 120px; padding: 4px; }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .row span { min-width: 64px; font-size: 13px; }
+  .value { font-family: monospace; background: #f3f3f3; padding: 4px 6px; margin-top: 5px; font-size: 13px; color: #444; }
+  .note { font-size: 13px; line-height: 1.5; }
+  button { margin-top: 10px; width: 100%; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>ホイールレッグ 渦状弧曲線 DXF出力エディタ</h1>
+
+<div class="wrap">
+  <canvas id="cv" width="700" height="700"></canvas>
+
+  <div class="panel">
+    <button id="downloadDxf">DXFをダウンロード</button>
+    <button id="downloadTxt">point curve (.txt) をダウンロード</button>
+
+    <label>外径 D [mm]</label>
+    <div class="row">
+      <span>数値</span><input id="diameterNum" type="number" min="10" max="1000" step="1" value="150">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="diameter" type="range" min="10" max="1000" step="1" value="150">
+    </div>
+    <div class="value">外径 D = <span id="diameterVal"></span></div>
+    <div class="value">表示倍率 = <span id="scaleVal"></span></div>
+
+    <label>レッグ幅 [mm]</label>
+    <div class="row">
+      <span>数値</span><input id="legWidthNum" type="number" min="0.1" max="100" step="0.1" value="5">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="legWidth" type="range" min="0.1" max="100" step="0.1" value="5">
+    </div>
+    <div class="value">レッグ幅 = <span id="legWidthVal"></span></div>
+
+    <label>レッグ本数 N</label>
+    <div class="row">
+      <span>数値</span><input id="legCountNum" type="number" min="1" max="24" step="1" value="4">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="legCount" type="range" min="1" max="24" step="1" value="4">
+    </div>
+    <div class="value">レッグ本数 N = <span id="legCountVal"></span></div>
+    <div class="value">配置角度 = <span id="pitchVal"></span></div>
+
+    <label>巻き角度 sweep [deg]</label>
+    <div class="row">
+      <span>数値</span><input id="sweepNum" type="number" min="-720" max="720" step="1" value="300">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="sweep" type="range" min="-720" max="720" step="1" value="300">
+    </div>
+    <div class="value">巻き角度 = <span id="sweepVal"></span></div>
+
+    <label>半径増加指数 exponent</label>
+    <div class="row">
+      <span>数値</span><input id="expoNum" type="number" min="0.3" max="3.0" step="0.01" value="1.00">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="expo" type="range" min="30" max="300" step="1" value="100">
+    </div>
+    <div class="value">半径増加指数 = <span id="expoVal"></span></div>
+
+    <label>開始半径 r0 [mm]</label>
+    <div class="row">
+      <span>数値</span><input id="startRadiusNum" type="number" min="0" max="500" step="1" value="0">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="startRadius" type="range" min="0" max="500" step="1" value="0">
+    </div>
+    <div class="value">開始半径 r0 = <span id="startRadiusVal"></span></div>
+
+    <label>分割数 / DXF点数</label>
+    <div class="row">
+      <span>数値</span><input id="samplesNum" type="number" min="50" max="1000" step="1" value="300">
+    </div>
+    <div class="row">
+      <span>スライダー</span><input id="samples" type="range" min="50" max="1000" step="1" value="300">
+    </div>
+    <div class="value">分割数 = <span id="samplesVal"></span></div>
+
+    <div class="value">1本の中心線長 ≒ <span id="lengthVal"></span></div>
+
+    <button id="reverse">巻き方向を反転</button>
+
+    <p class="note">
+      ● 数値入力中は、途中の値を勝手に補正しません。Enterまたはフォーカス外れで確定します。<br>
+      ● 各項目は、数値入力とスライダーの両方で操作できます。<br>
+      ● 初期値は、外径150mm・レッグ幅5mm・4本・巻角度300deg・指数1・開始位置0です。<br>
+      ● 画面表示は自動縮尺します。DXFは入力した mm 値そのままで出力します。<br>
+      ● レッグ本数 N を指定すると、360度/N 間隔で等分配置します。<br>
+      ● 青が編集対象の1本、灰色が複製レッグです。<br>
+      ● 終点 P1 をドラッグすると、外径円上で終点角度が変わります。<br>
+      ● DXFは、中心線とレッグ外形の折れ線近似を出力します。<br>
+      ● point curve .txt は、レッグ外形線（閉じたスプライン）のみを出力します。DesignSpark Mechanical の「挿入 → ファイル」で読み込み、カーブ選択 → 「塗りつぶし」 → 「プル」でソリッド化できます。
+    </p>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("cv");
+const ctx = canvas.getContext("2d");
+
+function byId(id) { return document.getElementById(id); }
+
+const controls = [
+  { range: byId("legCount"), num: byId("legCountNum"), min: 1, max: 24, step: 1, round: true },
+  { range: byId("diameter"), num: byId("diameterNum"), min: 10, max: 1000, step: 1, round: false },
+  { range: byId("startRadius"), num: byId("startRadiusNum"), min: 0, max: 500, step: 1, round: false },
+  { range: byId("sweep"), num: byId("sweepNum"), min: -720, max: 720, step: 1, round: false },
+  { range: byId("expo"), num: byId("expoNum"), min: 0.3, max: 3.0, step: 0.01, round: false, toNum: v => (Number(v) / 100).toFixed(2), toRange: v => Math.round(Number(v) * 100) },
+  { range: byId("legWidth"), num: byId("legWidthNum"), min: 0.1, max: 100, step: 0.1, round: false },
+  { range: byId("samples"), num: byId("samplesNum"), min: 50, max: 1000, step: 1, round: true }
+];
+
+const legCountVal = byId("legCountVal");
+const pitchVal = byId("pitchVal");
+const diameterVal = byId("diameterVal");
+const scaleVal = byId("scaleVal");
+const startRadiusVal = byId("startRadiusVal");
+const sweepVal = byId("sweepVal");
+const expoVal = byId("expoVal");
+const legWidthVal = byId("legWidthVal");
+const samplesVal = byId("samplesVal");
+const lengthVal = byId("lengthVal");
+
+const W = canvas.width;
+const H = canvas.height;
+const O = { x: W / 2, y: H / 2 };
+const displayMargin = 35;
+
+let D = 150;
+let R = D / 2;
+let displayScale = 1;
+let endAngle = -35 * Math.PI / 180;
+let draggingEnd = false;
+
+function clamp(v, min, max) {
+  v = Number(v);
+  if (!Number.isFinite(v)) v = min;
+  return Math.max(min, Math.min(max, v));
+}
+
+function commitControl(c) {
+  let v = Number(c.num.value);
+  if (!Number.isFinite(v)) v = Number(c.range.value);
+
+  v = clamp(v, c.min, c.max);
+  if (c.round) v = Math.round(v);
+
+  c.num.value = v;
+  c.range.value = c.toRange ? c.toRange(v) : v;
+}
+
+for (const c of controls) {
+  c.range.addEventListener("input", () => {
+    c.num.value = c.toNum ? c.toNum(c.range.value) : c.range.value;
+    draw();
+  });
+
+  // 数値入力中は描画・補正しない
+  c.num.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      commitControl(c);
+      draw();
+      c.num.blur();
+    }
+  });
+
+  c.num.addEventListener("blur", () => {
+    commitControl(c);
+    draw();
+  });
+}
+
+function updateScale() {
+  displayScale = Math.min((W / 2 - displayMargin) / R, (H / 2 - displayMargin) / R);
+  if (!Number.isFinite(displayScale) || displayScale <= 0) displayScale = 1;
+}
+
+function modelToCanvas(p) {
+  return { x: O.x + p.x * displayScale, y: O.y + p.y * displayScale };
+}
+
+function canvasToModel(p) {
+  return { x: (p.x - O.x) / displayScale, y: (p.y - O.y) / displayScale };
+}
+
+function polarToModel(r, th) {
+  return { x: r * Math.cos(th), y: r * Math.sin(th) };
+}
+
+function getControlValues() {
+  // ここでは入力欄を強制補正しない。現在確定している値として読むだけ。
+  let count = Math.round(clamp(byId("legCountNum").value, 1, 24));
+
+  D = clamp(byId("diameterNum").value, 10, 1000);
+  R = D / 2;
+  updateScale();
+
+  const maxR0 = Math.max(0, R - 0.001);
+  byId("startRadius").max = Math.floor(maxR0);
+  byId("startRadiusNum").max = Math.floor(maxR0);
+
+  let r0 = clamp(byId("startRadiusNum").value, 0, maxR0);
+
+  let sweepDeg = clamp(byId("sweepNum").value, -720, 720);
+  let expo = clamp(byId("expoNum").value, 0.3, 3.0);
+  let width = clamp(byId("legWidthNum").value, 0.1, 100);
+  let n = Math.round(clamp(byId("samplesNum").value, 50, 1000));
+
+  return {
+    r0,
+    width,
+    sweep: sweepDeg * Math.PI / 180,
+    sweepDeg,
+    expo,
+    n,
+    count
+  };
+}
+
+function curvePointModel(t, offsetAngle = 0) {
+  const { r0, sweep, expo } = getControlValues();
+  const rr = r0 + (R - r0) * Math.pow(t, expo);
+  const th = endAngle + offsetAngle - sweep * (1 - t);
+  return polarToModel(rr, th);
+}
+
+function curvePointCanvas(t, offsetAngle = 0) {
+  return modelToCanvas(curvePointModel(t, offsetAngle));
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function curveLength() {
+  const { n } = getControlValues();
+  let len = 0;
+  let prev = curvePointModel(0, 0);
+  for (let i = 1; i <= n; i++) {
+    const p = curvePointModel(i / n, 0);
+    len += distance(prev, p);
+    prev = p;
+  }
+  return len;
+}
+
+function drawPoint(p, label, color) {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "#333";
+  ctx.stroke();
+
+  ctx.fillStyle = "#111";
+  ctx.font = "14px sans-serif";
+  ctx.fillText(label, p.x + 10, p.y - 10);
+}
+
+function drawCurve(offsetAngle, lineWidthMm, strokeStyle) {
+  const { n } = getControlValues();
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const p = curvePointCanvas(i / n, offsetAngle);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = Math.max(1, lineWidthMm * displayScale);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+}
+
+function draw() {
+  const { r0, width, count, sweepDeg, expo, n } = getControlValues();
+
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.beginPath();
+  ctx.arc(O.x, O.y, R * displayScale, 0, Math.PI * 2);
+  ctx.strokeStyle = "#999";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  if (r0 > 0) {
+    ctx.beginPath();
+    ctx.arc(O.x, O.y, r0 * displayScale, 0, Math.PI * 2);
+    ctx.strokeStyle = "#ddd";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(O.x, O.y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "#111";
+  ctx.fill();
+
+  const pitch = 2 * Math.PI / count;
+
+  for (let k = 1; k < count; k++) {
+    const offset = pitch * k;
+    drawCurve(offset, width, "rgba(80,80,80,0.18)");
+    drawCurve(offset, Math.max(0.5, 2 / displayScale), "rgba(80,80,80,0.55)");
+  }
+
+  drawCurve(0, width, "rgba(80,80,80,0.25)");
+  drawCurve(0, Math.max(1, 4 / displayScale), "#0066cc");
+
+  const P0 = curvePointCanvas(0, 0);
+  const P1 = curvePointCanvas(1, 0);
+
+  drawPoint(P0, "P0 始点", "#ffcc00");
+  drawPoint(P1, "P1 終点", "#66cc66");
+
+  legCountVal.textContent = count;
+  pitchVal.textContent = (360 / count).toFixed(1) + "°";
+  diameterVal.textContent = D + " mm";
+  scaleVal.textContent = displayScale.toFixed(4) + " px/mm";
+  startRadiusVal.textContent = r0.toFixed(2) + " mm";
+  sweepVal.textContent = sweepDeg + "°";
+  expoVal.textContent = expo.toFixed(2);
+  legWidthVal.textContent = width.toFixed(2) + " mm";
+  samplesVal.textContent = n;
+  lengthVal.textContent = curveLength().toFixed(2) + " mm";
+}
+
+function getMouse(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+canvas.addEventListener("mousedown", e => {
+  const m = getMouse(e);
+  const P1 = curvePointCanvas(1, 0);
+  if (distance(m, P1) < 18) draggingEnd = true;
+});
+
+canvas.addEventListener("mousemove", e => {
+  if (!draggingEnd) return;
+  const m = getMouse(e);
+  const mm = canvasToModel(m);
+  endAngle = Math.atan2(mm.y, mm.x);
+  draw();
+});
+
+canvas.addEventListener("mouseup", () => draggingEnd = false);
+canvas.addEventListener("mouseleave", () => draggingEnd = false);
+
+document.getElementById("reverse").addEventListener("click", () => {
+  const sweepNum = byId("sweepNum");
+  const sweepRange = byId("sweep");
+  const v = -Number(sweepNum.value);
+  sweepNum.value = v;
+  sweepRange.value = v;
+  draw();
+});
+
+// R12(AC1009)互換の旧式ポリライン。JW-CADはLWPOLYLINEを読めないためこちらを使う
+function addPolyline(lines, points, layer, closed) {
+  lines.push("0", "POLYLINE");
+  lines.push("8", layer);
+  lines.push("6", "CONTINUOUS");
+  lines.push("62", "7");
+  lines.push("66", "1");
+  lines.push("70", closed ? "1" : "0");
+  for (const p of points) {
+    lines.push("0", "VERTEX");
+    lines.push("8", layer);
+    lines.push("10", p.x.toFixed(4));
+    lines.push("20", p.y.toFixed(4));
+    lines.push("30", "0");
+  }
+  lines.push("0", "SEQEND");
+  lines.push("8", layer);
+}
+
+function offsetOutline(points, width) {
+  const left = [];
+  const right = [];
+  const half = width / 2;
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const prev = points[Math.max(0, i - 1)];
+    const next = points[Math.min(points.length - 1, i + 1)];
+
+    const dx = next.x - prev.x;
+    const dy = next.y - prev.y;
+    const len = Math.hypot(dx, dy) || 1;
+
+    const nx = -dy / len;
+    const ny = dx / len;
+
+    left.push({ x: p.x + nx * half, y: p.y + ny * half });
+    right.push({ x: p.x - nx * half, y: p.y - ny * half });
+  }
+
+  return left.concat(right.reverse());
+}
+
+function makeDxf() {
+  // DXF出力前に数値欄を確定
+  for (const c of controls) commitControl(c);
+
+  const { n, count, width } = getControlValues();
+  const pitch = 2 * Math.PI / count;
+
+  const lines = [];
+  lines.push("0", "SECTION", "2", "HEADER");
+  lines.push("9", "$ACADVER", "1", "AC1009");
+  lines.push("0", "ENDSEC");
+
+  // 線種・レイヤ定義。全レイヤを実線(CONTINUOUS)・黒(色番号7)にする
+  lines.push("0", "SECTION", "2", "TABLES");
+
+  lines.push("0", "TABLE", "2", "LTYPE", "70", "1");
+  lines.push("0", "LTYPE");
+  lines.push("2", "CONTINUOUS");
+  lines.push("70", "0");
+  lines.push("3", "Solid line");
+  lines.push("72", "65");
+  lines.push("73", "0");
+  lines.push("40", "0.0");
+  lines.push("0", "ENDTAB");
+
+  lines.push("0", "TABLE", "2", "LAYER", "70", "3");
+  for (const layer of ["OUTER_DIAMETER", "CENTER_LINE", "LEG_OUTLINE"]) {
+    lines.push("0", "LAYER");
+    lines.push("2", layer);
+    lines.push("70", "0");
+    lines.push("62", "7");
+    lines.push("6", "CONTINUOUS");
+  }
+  lines.push("0", "ENDTAB");
+
+  lines.push("0", "ENDSEC");
+
+  lines.push("0", "SECTION", "2", "ENTITIES");
+
+  lines.push("0", "CIRCLE");
+  lines.push("8", "OUTER_DIAMETER");
+  lines.push("6", "CONTINUOUS");
+  lines.push("62", "7");
+  lines.push("10", "0");
+  lines.push("20", "0");
+  lines.push("30", "0");
+  lines.push("40", R.toFixed(4));
+
+  for (let k = 0; k < count; k++) {
+    const offset = pitch * k;
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      pts.push(curvePointModel(i / n, offset));
+    }
+
+    addPolyline(lines, pts, "CENTER_LINE", false);
+
+    const outline = offsetOutline(pts, width);
+    addPolyline(lines, outline, "LEG_OUTLINE", true);
+  }
+
+  lines.push("0", "ENDSEC", "0", "EOF");
+  return lines.join("\r\n");
+}
+
+// DesignSpark Mechanical 用 point curve テキスト。レッグ外形線のみを出力する
+// 形式: 1列目=平面高さ(2Dなので0固定)、2列目=X、3列目=Y。空行で次のカーブに切り替わる
+// polyline指定なし＝スプライン。折れ線だとDS-Mの「塗りつぶし」が面を張れないためスプラインで出す
+function makePointCurveTxt() {
+  // 出力前に数値欄を確定
+  for (const c of controls) commitControl(c);
+
+  const { n, count, width } = getControlValues();
+  const pitch = 2 * Math.PI / count;
+
+  const lines = [];
+
+  for (let k = 0; k < count; k++) {
+    const offset = pitch * k;
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      pts.push(curvePointModel(i / n, offset));
+    }
+
+    const outline = offsetOutline(pts, width);
+    lines.push("");
+    for (const p of outline) {
+      lines.push("0 " + p.x.toFixed(4) + " " + p.y.toFixed(4));
+    }
+    // 始点を再度出力してカーブを閉じる
+    lines.push("0 " + outline[0].x.toFixed(4) + " " + outline[0].y.toFixed(4));
+  }
+
+  return lines.join("\r\n");
+}
+
+function downloadText(filename, text, mime = "text/plain") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("downloadDxf").addEventListener("click", () => {
+  const dxf = makeDxf();
+  draw();
+  downloadText("wheel_leg.dxf", dxf, "application/dxf");
+});
+
+document.getElementById("downloadTxt").addEventListener("click", () => {
+  const txt = makePointCurveTxt();
+  draw();
+  downloadText("wheel_leg_point_curve.txt", txt);
+});
+
+draw();
+</script>
+</body>
+</html>

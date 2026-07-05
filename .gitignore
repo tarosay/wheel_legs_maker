@@ -141,3 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Generated CAD outputs
+*.dxf
+wheel_leg_point_curve*.txt
+
+# Claude Code local settings
+.claude/
